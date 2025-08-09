@@ -1,0 +1,55 @@
+version: '3.8'
+
+networks:
+  pulse:
+    driver: bridge
+
+services:
+  postgres:
+    image: postgres
+    volumes:
+      # - ./01-basegeografica.sql:/docker-entrypoint-initdb.d/01-basegeografica.sql
+      # - ./02-basegeografica.sql:/docker-entrypoint-initdb.d/02-basegeografica.sql
+    environment:
+      # POSTGRES_PASSWORD: "Postgres2022!"
+    ports:
+      - "5432:5432"
+    networks:
+      - pulse
+
+  cache:
+    image: redis:6.2-alpine
+    restart: always
+    ports:
+      - '6379:6379'
+    command: redis-server --save 20 1 --loglevel warning --requirepass eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+    volumes: 
+      - cache:/data
+    networks:
+      - pulse
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    environment:
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: 7080
+      KC_HOSTNAME_STRICT_BACKCHANNEL: "true"
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HEALTH_ENABLED: "true"
+      KC_LOG_LEVEL: info
+    command: ["start-dev", "--http-port", "7080", "--https-port", "7443"]
+    ports:
+      - "7080:7080"
+      - "7443:7443"
+    networks:
+      - pulse
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7080/health/ready"]
+      interval: 15s
+      timeout: 2s
+      retries: 15
+
+volumes:
+  cache:
+    driver: local
